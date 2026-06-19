@@ -4,10 +4,6 @@ server:
 spring:
   application:
     name: apigateway
-
-  profiles:
-    active: docker
-
   cloud:
     gateway:
       server:
@@ -29,9 +25,9 @@ spring:
                 - Path=/api/v1/orders/**,/api/v1/items/**,/api/v1/order-items/**
 
 services:
-  authservice-url: http://authservice:8081
-  userservice-url: http://userservice:8082
-  orderservice-url: http://orderservice:8083
+  authservice-url: http://localhost:8081
+  userservice-url: http://localhost:8082
+  orderservice-url: http://localhost:8083
 
 jwt:
   secret-key: "KZSHyaAUVhrpWoTlO7DkzqozsZBt62dxRNYPm53iRzA"

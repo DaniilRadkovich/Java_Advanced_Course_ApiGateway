@@ -1,0 +1,164 @@
+services:
+  apigateway:
+    build: .
+    container_name: apigateway
+    env_file:
+      - ./.env
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - authservice
+      - userservice
+      - orderservice
+    networks:
+      - app-network
+
+  authservice:
+    build: ../authenticationservice
+    container_name: authservice
+    env_file:
+      - ../authenticationservice/.env
+    environment:
+      - SPRING_PROFILES_ACTIVE=${AUTH_DOCKER_PROFILE}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://authservice-postgres:5432/${AUTH_POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${AUTH_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${AUTH_DATASOURCE_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - LOGGING_LEVEL_LIQUIBASE=INFO
+      - LOGGING_LEVEL_COM_INNOWISE=INFO
+      - AUTH_BASE_URL=http://authservice:8081
+      - INTERNAL_KEY=${INTERNAL_KEY}
+    depends_on:
+      authservice-postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  authservice-postgres:
+      image: postgres:15-alpine
+      container_name: authservice-postgres
+      environment:
+        POSTGRES_DB: ${AUTH_POSTGRES_DB}
+        POSTGRES_USER: ${AUTH_POSTGRES_USER}
+        POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
+      ports:
+        - "${AUTH_POSTGRES_PORT}:5432"
+      volumes:
+        - authservice-pgdata:/var/lib/postgresql/data
+      healthcheck:
+        test: [ "CMD-SHELL", "pg_isready -U ${AUTH_POSTGRES_USER} -d ${AUTH_POSTGRES_DB}" ]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      networks:
+        - app-network
+
+  userservice:
+    build: ../userservice
+    container_name: userservice
+    env_file:
+      - ../userservice/.env
+    environment:
+      - SPRING_PROFILES_ACTIVE=${USER_DOCKER_PROFILE}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://userservice-postgres:5432/${USER_POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${USER_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${USER_DATASOURCE_PASSWORD}
+      - REDIS_HOST=${USER_REDIS_HOST}
+      - REDIS_PORT=${USER_REDIS_PORT}
+      - JWT_SECRET=${JWT_SECRET}
+      - LOGGING_LEVEL_LIQUIBASE=INFO
+      - LOGGING_LEVEL_COM_INNOWISE=INFO
+      - USER_BASE_URL=http://userservice:8082
+      - INTERNAL_KEY=${INTERNAL_KEY}
+    depends_on:
+      userservice-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  userservice-postgres:
+    image: postgres:15-alpine
+    container_name: userservice-postgres
+    environment:
+      POSTGRES_DB: ${USER_POSTGRES_DB}
+      POSTGRES_USER: ${USER_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${USER_POSTGRES_PASSWORD}
+    ports:
+      - "${USER_POSTGRES_PORT}:5432"
+    volumes:
+      - userservice-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${USER_POSTGRES_USER} -d ${USER_POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: userservice-redis
+    ports:
+      - "${USER_REDIS_PORT}:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 2
+    networks:
+      - app-network
+
+  orderservice:
+    build: ../orderservice
+    container_name: orderservice
+    env_file:
+      - ../orderservice/.env
+    environment:
+      - SPRING_PROFILES_ACTIVE=${ORDER_DOCKER_PROFILE}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://orderservice-postgres:5432/${ORDER_POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${ORDER_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${ORDER_DATASOURCE_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - LOGGING_LEVEL_LIQUIBASE=INFO
+      - LOGGING_LEVEL_COM_INNOWISE=INFO
+      - ORDER_BASE_URL=http://orderservice:8083
+    depends_on:
+      orderservice-postgres:
+        condition: service_healthy
+      userservice:
+        condition: service_started
+    networks:
+      - app-network
+
+  orderservice-postgres:
+    image: postgres:15-alpine
+    container_name: orderservice-postgres
+    environment:
+      POSTGRES_DB: ${ORDER_POSTGRES_DB}
+      POSTGRES_USER: ${ORDER_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${ORDER_POSTGRES_PASSWORD}
+    ports:
+      - "${ORDER_POSTGRES_PORT}:5432"
+    volumes:
+      - orderservice-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${ORDER_POSTGRES_USER} -d ${ORDER_POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+volumes:
+  authservice-pgdata:
+  userservice-pgdata:
+  orderservice-pgdata:
+
+networks:
+  app-network:
+    name: app-network
+    driver: bridge
