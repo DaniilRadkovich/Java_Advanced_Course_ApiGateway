@@ -28,10 +28,16 @@ spring:
               predicates:
                 - Path=/api/v1/orders/**,/api/v1/items/**,/api/v1/order-items/**
 
+            - id: paymentservice
+              uri: ${services.paymentservice-url}
+              predicates:
+                - Path=/api/v1/payments/**
+
 services:
   authservice-url: http://authservice:8081
   userservice-url: http://userservice:8082
   orderservice-url: http://orderservice:8083
+  paymentservice-url: http://paymentservice:8084
 
 jwt:
   secret-key: "KZSHyaAUVhrpWoTlO7DkzqozsZBt62dxRNYPm53iRzA"

@@ -12,6 +12,7 @@ services:
       - authservice
       - userservice
       - orderservice
+      - paymentservice
     networks:
       - app-network
 
@@ -126,10 +127,13 @@ services:
       - LOGGING_LEVEL_LIQUIBASE=INFO
       - LOGGING_LEVEL_COM_INNOWISE=INFO
       - ORDER_BASE_URL=http://orderservice:8083
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     depends_on:
       orderservice-postgres:
         condition: service_healthy
       userservice:
+        condition: service_started
+      kafka:
         condition: service_started
     networks:
       - app-network
@@ -153,10 +157,89 @@ services:
     networks:
       - app-network
 
+  paymentservice:
+    build: ../paymentservice
+    container_name: paymentservice
+    env_file:
+      - ../paymentservice/.env
+    environment:
+      - SPRING_PROFILES_ACTIVE=${PAYMENT_DOCKER_PROFILE}
+      - SPRING_DATA_MONGODB_HOST=mongodb
+      - SPRING_DATA_MONGODB_PORT=27017
+      - SPRING_DATA_MONGODB_USERNAME=${SPRING_MONGODB_USERNAME}
+      - SPRING_DATA_MONGODB_PASSWORD=${SPRING_MONGODB_PASSWORD}
+      - SPRING_DATA_MONGODB_DATABASE=${SPRING_MONGODB_DATABASE}
+      - SPRING_DATA_MONGODB_URI=${SPRING_MONGODB_DATABASE_URI}
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - JWT_SECRET=${JWT_SECRET}
+      - SERVER_PORT=8084
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - app-network
+
+  mongodb:
+    image: mongo:8.0
+    container_name: paymentservice-mongo
+
+    ports:
+      - "${MONGO_PORT}:27017"
+
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${SPRING_MONGODB_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${SPRING_MONGODB_PASSWORD}
+      MONGO_INITDB_DATABASE: ${SPRING_MONGODB_DATABASE}
+
+    volumes:
+      - mongo-data:/data/db
+
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping').ok", "--quiet" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    networks:
+      - app-network
+
+  kafka:
+    image: apache/kafka:latest
+    container_name: paymentservice-kafka
+    ports:
+      - "${KAFKA_PORT}:9092"
+    environment:
+      - KAFKA_NODE_ID=0
+      - KAFKA_PROCESS_ROLES=controller,broker
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LOG_DIRS=/var/lib/kafka/data
+      - KAFKA_NUM_PARTITIONS=3
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions.sh", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
 volumes:
   authservice-pgdata:
   userservice-pgdata:
   orderservice-pgdata:
+  mongo-data:
+  kafka-data:
 
 networks:
   app-network:
