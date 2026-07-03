@@ -8,12 +8,12 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -50,7 +50,7 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(AuthorizationDeniedException.class)
   public ResponseEntity<ErrorResponse> handleAuthorizationDeniedException(
-      AuthorizationDeniedException ex, HttpServletRequest request) {
+      AuthorizationDeniedException ex, ServerHttpRequest request) {
 
     HttpStatus status = HttpStatus.FORBIDDEN;
 
@@ -59,7 +59,7 @@ public class GlobalExceptionHandler {
             status.value(),
             status.getReasonPhrase(),
             ex.getMessage(),
-            request.getRequestURI(),
+            request.getURI().getPath(),
         ex.getClass().getSimpleName());
 
     return ResponseEntity.status(status).body(errorResponse);
@@ -67,7 +67,7 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(JwtException.class)
   public ResponseEntity<ErrorResponse> handleJwtExceptionException(
-      JwtException ex, HttpServletRequest request) {
+      JwtException ex, ServerHttpRequest request) {
 
     HttpStatus status = HttpStatus.BAD_REQUEST;
 
@@ -76,7 +76,7 @@ public class GlobalExceptionHandler {
         status.value(),
         status.getReasonPhrase(),
         ex.getMessage(),
-        request.getRequestURI(),
+        request.getURI().getPath(),
         ex.getClass().getSimpleName());
 
     return ResponseEntity.status(status).body(errorResponse);
