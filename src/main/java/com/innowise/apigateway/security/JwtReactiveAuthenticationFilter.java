@@ -43,6 +43,11 @@ public class JwtReactiveAuthenticationFilter implements WebFilter {
   @Override
   public Mono<Void> filter(ServerWebExchange exchange, @NonNull WebFilterChain chain) {
     ServerHttpRequest request = exchange.getRequest();
+    String path = request.getURI().getPath();
+
+    if (path.contains("/login") || path.contains("/register")) {
+      return chain.filter(exchange);
+    }
 
     log.info("METHOD = {}", request.getMethod());
     log.info("URI = {}", request.getURI().getPath());
