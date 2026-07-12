@@ -194,25 +194,20 @@ services:
   mongodb:
     image: mongo:8.0
     container_name: paymentservice-mongo
-
     ports:
       - "${MONGO_PORT}:27017"
-
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${SPRING_MONGODB_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${SPRING_MONGODB_PASSWORD}
       MONGO_INITDB_DATABASE: ${SPRING_MONGODB_DATABASE}
-
     volumes:
       - mongo-data:/data/db
-
     healthcheck:
       test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping').ok", "--quiet" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-
     networks:
       - app-network
 

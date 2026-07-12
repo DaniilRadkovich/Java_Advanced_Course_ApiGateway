@@ -45,6 +45,10 @@ public class JwtReactiveAuthenticationFilter implements WebFilter {
     ServerHttpRequest request = exchange.getRequest();
     String path = request.getURI().getPath();
 
+    if (path.startsWith("/actuator")) {
+      return chain.filter(exchange);
+    }
+
     if (path.contains("/login") || path.contains("/register")) {
       return chain.filter(exchange);
     }

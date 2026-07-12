@@ -24,6 +24,8 @@ public class SecurityConfig {
         .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
 
         .authorizeExchange(exchanges -> exchanges
+            .pathMatchers("/actuator/health", "/actuator/health/**", "/actuator/info")
+            .permitAll()
             .pathMatchers("/api/v1/auth/login").permitAll()
             .pathMatchers("/api/v1/auth/register").permitAll()
             .anyExchange().authenticated()
