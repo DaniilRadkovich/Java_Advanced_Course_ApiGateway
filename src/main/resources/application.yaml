@@ -57,3 +57,9 @@ management:
       enabled: true
     livenessstate:
       enabled: true
+
+logging:
+  structured:
+    json:
+      enabled: true
+

@@ -11,20 +11,20 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - authenticationservice
+      - authservice
       - userservice
       - orderservice
       - paymentservice
     networks:
       - app-network
 
-  authenticationservice:
+  authservice:
     build:
-      context: ../authenticationservice
+      context: ../authservice
       dockerfile: Dockerfile
     container_name: authservice
     env_file:
-      - ../authenticationservice/.env
+      - ../authservice/.env
     environment:
       - SPRING_PROFILES_ACTIVE=${AUTH_DOCKER_PROFILE}
       - SPRING_DATASOURCE_URL=jdbc:postgresql://authservice-postgres:5432/${AUTH_POSTGRES_DB}
