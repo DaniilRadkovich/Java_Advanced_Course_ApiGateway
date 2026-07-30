@@ -1,0 +1,252 @@
+services:
+  apigateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: apigateway
+    env_file:
+      - ./.env
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - authservice
+      - userservice
+      - orderservice
+      - paymentservice
+    networks:
+      - app-network
+
+  authservice:
+    build:
+      context: ../authservice
+      dockerfile: Dockerfile
+    container_name: authservice
+    env_file:
+      - ../authservice/.env
+    environment:
+      - SPRING_PROFILES_ACTIVE=${AUTH_DOCKER_PROFILE}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://authservice-postgres:5432/${AUTH_POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${AUTH_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${AUTH_DATASOURCE_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - LOGGING_LEVEL_LIQUIBASE=INFO
+      - LOGGING_LEVEL_COM_INNOWISE=INFO
+      - AUTH_BASE_URL=http://authservice:8081
+      - INTERNAL_KEY=${INTERNAL_KEY}
+    depends_on:
+      authservice-postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  authservice-postgres:
+      image: postgres:15-alpine
+      container_name: authservice-postgres
+      environment:
+        POSTGRES_DB: ${AUTH_POSTGRES_DB}
+        POSTGRES_USER: ${AUTH_POSTGRES_USER}
+        POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
+      ports:
+        - "${AUTH_POSTGRES_PORT}:5432"
+      volumes:
+        - authservice-pgdata:/var/lib/postgresql/data
+      healthcheck:
+        test: [ "CMD-SHELL", "pg_isready -U ${AUTH_POSTGRES_USER} -d ${AUTH_POSTGRES_DB}" ]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      networks:
+        - app-network
+
+  userservice:
+    build:
+      context: ../userservice
+      dockerfile: Dockerfile
+    container_name: userservice
+    env_file:
+      - ../userservice/.env
+    environment:
+      - SPRING_PROFILES_ACTIVE=${USER_DOCKER_PROFILE}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://userservice-postgres:5432/${USER_POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${USER_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${USER_DATASOURCE_PASSWORD}
+      - REDIS_HOST=${USER_REDIS_HOST}
+      - REDIS_PORT=${USER_REDIS_PORT}
+      - JWT_SECRET=${JWT_SECRET}
+      - LOGGING_LEVEL_LIQUIBASE=INFO
+      - LOGGING_LEVEL_COM_INNOWISE=INFO
+      - USER_BASE_URL=http://userservice:8082
+      - INTERNAL_KEY=${INTERNAL_KEY}
+    depends_on:
+      userservice-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  userservice-postgres:
+    image: postgres:15-alpine
+    container_name: userservice-postgres
+    environment:
+      POSTGRES_DB: ${USER_POSTGRES_DB}
+      POSTGRES_USER: ${USER_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${USER_POSTGRES_PASSWORD}
+    ports:
+      - "${USER_POSTGRES_PORT}:5432"
+    volumes:
+      - userservice-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${USER_POSTGRES_USER} -d ${USER_POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: userservice-redis
+    ports:
+      - "${USER_REDIS_PORT}:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 2
+    networks:
+      - app-network
+
+  orderservice:
+    build:
+      context: ../orderservice
+      dockerfile: Dockerfile
+    container_name: orderservice
+    env_file:
+      - ../orderservice/.env
+    environment:
+      - SPRING_PROFILES_ACTIVE=${ORDER_DOCKER_PROFILE}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://orderservice-postgres:5432/${ORDER_POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${ORDER_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${ORDER_DATASOURCE_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - LOGGING_LEVEL_LIQUIBASE=INFO
+      - LOGGING_LEVEL_COM_INNOWISE=INFO
+      - ORDER_BASE_URL=http://orderservice:8083
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      orderservice-postgres:
+        condition: service_healthy
+      userservice:
+        condition: service_started
+      kafka:
+        condition: service_started
+    networks:
+      - app-network
+
+  orderservice-postgres:
+    image: postgres:15-alpine
+    container_name: orderservice-postgres
+    environment:
+      POSTGRES_DB: ${ORDER_POSTGRES_DB}
+      POSTGRES_USER: ${ORDER_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${ORDER_POSTGRES_PASSWORD}
+    ports:
+      - "${ORDER_POSTGRES_PORT}:5432"
+    volumes:
+      - orderservice-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${ORDER_POSTGRES_USER} -d ${ORDER_POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  paymentservice:
+    build:
+      context: ../paymentservice
+      dockerfile: Dockerfile
+    container_name: paymentservice
+    env_file:
+      - ../paymentservice/.env
+    environment:
+      - SPRING_PROFILES_ACTIVE=${PAYMENT_DOCKER_PROFILE}
+      - SPRING_DATA_MONGODB_HOST=mongodb
+      - SPRING_DATA_MONGODB_PORT=27017
+      - SPRING_DATA_MONGODB_USERNAME=${SPRING_MONGODB_USERNAME}
+      - SPRING_DATA_MONGODB_PASSWORD=${SPRING_MONGODB_PASSWORD}
+      - SPRING_DATA_MONGODB_DATABASE=${SPRING_MONGODB_DATABASE}
+      - SPRING_DATA_MONGODB_URI=${SPRING_MONGODB_DATABASE_URI}
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - JWT_SECRET=${JWT_SECRET}
+      - SERVER_PORT=8084
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - app-network
+
+  mongodb:
+    image: mongo:8.0
+    container_name: paymentservice-mongo
+    ports:
+      - "${MONGO_PORT}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${SPRING_MONGODB_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${SPRING_MONGODB_PASSWORD}
+      MONGO_INITDB_DATABASE: ${SPRING_MONGODB_DATABASE}
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping').ok", "--quiet" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app-network
+
+  kafka:
+    image: apache/kafka:latest
+    container_name: paymentservice-kafka
+    ports:
+      - "${KAFKA_PORT}:9092"
+    environment:
+      - KAFKA_NODE_ID=0
+      - KAFKA_PROCESS_ROLES=controller,broker
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LOG_DIRS=/var/lib/kafka/data
+      - KAFKA_NUM_PARTITIONS=3
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions.sh", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+volumes:
+  authservice-pgdata:
+  userservice-pgdata:
+  orderservice-pgdata:
+  mongo-data:
+  kafka-data:
+
+networks:
+  app-network:
+    name: app-network
+    driver: bridge

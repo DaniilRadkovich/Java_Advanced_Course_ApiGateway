@@ -4,10 +4,6 @@ server:
 spring:
   application:
     name: apigateway
-
-  profiles:
-    active: docker
-
   cloud:
     gateway:
       server:
@@ -31,7 +27,7 @@ spring:
             - id: paymentservice
               uri: ${services.paymentservice-url}
               predicates:
-                - Path=/api/v1/payments/**
+                - Path=/api/v1/payments,/api/v1/payments/**
 
 services:
   authservice-url: http://authservice:8081
@@ -46,20 +42,4 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
-  endpoint:
-    health:
-      probes:
-        enabled: true
-      show-details: never
-  health:
-    readinessstate:
-      enabled: true
-    livenessstate:
-      enabled: true
-
-logging:
-  structured:
-    json:
-      enabled: true
-
+        include: gateway,health
